@@ -85,6 +85,20 @@ import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
  * -&gt; Next -&gt; Create Search Index
  */
 public class MongoDbEmbeddingStore implements EmbeddingStore<TextSegment> {
+
+    /**
+     * Reflective reference to MongoClient.appendMetadata method (available since driver version 5.6.0).
+     */
+    private static Method APPEND_METADATA;
+
+    static {
+        try {
+            APPEND_METADATA = MongoClient.class.getMethod("appendMetadata", MongoDriverInformation.class);
+        } catch (NoSuchMethodException e) {
+            // Method doesn't exist (older driver version)
+        }
+    }
+
     private static final int SECONDS_TO_WAIT_FOR_INDEX = 20;
 
     private static final Logger log = LoggerFactory.getLogger(MongoDbEmbeddingStore.class);
