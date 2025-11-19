@@ -2,7 +2,6 @@ package dev.langchain4j.store.embedding.mongodb;
 
 import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoCommandException;
-import com.mongodb.MongoDriverInformation;
 import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -20,8 +19,6 @@ import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.filter.Filter;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import org.bson.Document;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.codecs.pojo.PojoCodecProvider;
@@ -30,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -42,9 +40,12 @@ import static com.mongodb.client.model.search.VectorSearchOptions.approximateVec
 import static dev.langchain4j.internal.Utils.*;
 import static dev.langchain4j.internal.ValidationUtils.*;
 import static dev.langchain4j.store.embedding.mongodb.IndexMapping.defaultIndexMapping;
+import static dev.langchain4j.store.embedding.mongodb.MappingUtils.*;
 import static dev.langchain4j.store.embedding.mongodb.MongoDbMetadataFilterMapper.map;
+import static java.util.Arrays.asList;
 import static dev.langchain4j.store.embedding.mongodb.MappingUtils.fromIndexMapping;
 import static dev.langchain4j.store.embedding.mongodb.MappingUtils.toMongoDbDocument;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
@@ -117,7 +118,6 @@ public class MongoDbEmbeddingStore implements EmbeddingStore<TextSegment> {
                                  Bson filter,
                                  IndexMapping indexMapping,
                                  Boolean createIndex) {
-        mongoClient = ensureNotNull(mongoClient, "mongoClient");
         databaseName = ensureNotNull(databaseName, "databaseName");
         collectionName = ensureNotNull(collectionName, "collectionName");
         createIndex = getOrDefault(createIndex, false);
@@ -128,7 +128,6 @@ public class MongoDbEmbeddingStore implements EmbeddingStore<TextSegment> {
                 .register(MongoDbDocument.class, MongoDbMatchedDocument.class)
                 .build());
         CodecRegistry codecRegistry = fromRegistries(MongoClientSettings.getDefaultCodecRegistry(), pojoCodecRegistry);
-        appendMongoClientMetadata(mongoClient);
 
         // create collection if not exist
         MongoDatabase database = mongoClient.getDatabase(databaseName);
@@ -429,23 +428,5 @@ public class MongoDbEmbeddingStore implements EmbeddingStore<TextSegment> {
         }
         log.warn("Index {} was not created or did not exit INITIAL_SYNC within {} seconds",
                 indexName, SECONDS_TO_WAIT_FOR_INDEX);
-    }
-
-    private static void appendMongoClientMetadata(final MongoClient mongoClient) {
-        // append metadata to mongo client
-        // in case when driver version is lower than 5.6.0, appendMetadata method does not exist
-        if (APPEND_METADATA != null) {
-            try {
-                APPEND_METADATA.invoke(
-                        mongoClient,
-                        MongoDriverInformation.builder()
-                                .driverName("langchain4j-mongodb")
-                                .build()
-                );
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                // ignore exception , failed to append metadata should not block normal usage
-                log.warn("Failed to append metadata to MongoClient", e);
-            }
-        }
     }
 }
